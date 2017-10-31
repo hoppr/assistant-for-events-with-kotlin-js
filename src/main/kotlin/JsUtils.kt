@@ -1,3 +1,4 @@
+import kotlin.js.Date
 import kotlin.js.Math
 
 
@@ -5,6 +6,12 @@ import kotlin.js.Math
 
 fun also(obj: dynamic, onReady: (dynamic) -> dynamic) = obj.unsafeCast<Any>().apply { onReady(asDynamic()) }.asDynamic()
 
+fun getWeekNumber(date: Date) = eval("""
+var d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+var dayNum = d.getUTCDay() || 7;
+d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+Math.ceil((((d - yearStart) / 86400000) + 1)/7);""")
 
 // Json
 

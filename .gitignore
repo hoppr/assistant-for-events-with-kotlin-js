@@ -162,3 +162,6 @@ typings/
 
 # dotenv environment variables file
 .env
+.gradle/
+build/
+functions/.gradle/

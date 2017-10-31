@@ -8,6 +8,7 @@ fun main(args: Array<String>) {
     val dbBot = fireAdmin.database().ref("/bot")
     val dbQuestion = dbBot.child("polls/questions/2017-10-16-serverless")
     val dbResp = dbBot.child("polls/responses/2017-10-16-serverless")
+    val dbTasks = dbBot.child("tasks")
 
     fun pollQuestion(id: Int, result: (PollQuestion?) -> dynamic) = fireReadOnce(dbQuestion.child(id)) { result(it.unsafeCast<PollQuestion?>()) }
 
@@ -171,6 +172,58 @@ fun main(args: Array<String>) {
         // Unknown action
             else -> sendDialogResponse("Il servizio non è ancora disponibile")
         }
+    }
+
+    exports.trelloUtils = fireFunctions.https.onRequest { req, res ->
+        console.log("Request headers: " + toJson(req.headers))
+        console.log("Request body: " + toJson(req.body))
+
+        // Responses generic
+
+        fun sendPlainText(text: String): dynamic {
+            console.log("Response body: $text")
+            return res.status(200).send(text)
+        }
+
+        val users = jsMap { }
+        val dbCards = dbTasks.child("cards")
+        class Task(val link: String, val name: String, val points: Int, val members: String?, val date: String, val board: String)
+
+
+        // merge tasks from boards
+
+        val listTasks = ArrayList<Pair<Task, dynamic>>()
+        keys(req.body).forEach { board ->
+            req.body[board].unsafeCast<Array<dynamic>>().forEach {
+                val points = it.labels.unsafeCast<Array<dynamic>>().map { it.name.unsafeCast<String>().take(2).trim().toIntOrNull() ?: 0 }.max() ?: 0
+                val members = it.members.unsafeCast<Array<dynamic>>().map {
+                    users[it.username] = it.fullName
+                    it.username
+                }.joinToString(", ").takeIf { it.isNotEmpty() }
+                val date = eval("new Date('${it.dateLastActivity}')")
+                listTasks.add(Task(it.shortUrl, it.name, points, members, it.dateLastActivity, board) to date)
+            }
+        }
+
+
+        // Sort task by year, week # of the year
+
+        listTasks.groupBy { it.second.getFullYear().unsafeCast<Int>() }
+                .map {
+                    it.key to it.value.groupBy { getWeekNumber(it.second).unsafeCast<Int>() }
+                }
+                .forEach {
+                    val year = it.first
+                    val dbYear = dbCards.child(year)
+                    it.second.forEach {
+                        val weekNum = it.key
+                        val tasks = it.value.map { it.first }.toTypedArray()
+                        dbYear.child(weekNum).update(tasks)
+                    }
+                }
+
+        dbTasks.child("users").update(users)
+        sendPlainText("OK")
     }
 }
 
