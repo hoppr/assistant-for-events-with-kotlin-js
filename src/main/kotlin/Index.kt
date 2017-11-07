@@ -174,7 +174,7 @@ fun main(args: Array<String>) {
         }
     }
 
-    exports.trelloUtils = fireFunctions.https.onRequest { req, res ->
+    exports.trelloToFirebase = fireFunctions.https.onRequest { req, res ->
         console.log("Request headers: " + toJson(req.headers))
         console.log("Request body: " + toJson(req.body))
 
@@ -224,6 +224,20 @@ fun main(args: Array<String>) {
 
         dbTasks.child("users").update(users)
         sendPlainText("OK")
+    }
+
+    exports.firebaseTaskAnalytics = fireFunctions.https.onRequest { req, res ->
+        console.log("Request headers: " + toJson(req.headers))
+        console.log("Request body: " + toJson(req.body))
+
+        fireReadOnce(dbTasks.child("cards/2017")) { weeks ->
+            fun sendPlainText(text: String): dynamic {
+                console.log("Response body: $text")
+                return res.status(200).send(text)
+            }
+
+            sendPlainText("OK")
+        }
     }
 }
 
