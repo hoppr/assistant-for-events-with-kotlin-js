@@ -37,7 +37,33 @@ class PollQuestion(val text: String, val text_hints: String?, val type: String) 
                     it.one_time_keyboard = true
                 }
             }
+            it.google = jsMap {
+                it.richResponse = jsMap {
+                    it.items = arrayOf(
+                            jsMap {
+                                it.simpleResponse = jsMap {
+                                    it.textToSpeech = text
+                                    it.displayText = text
+                                }
+                            }
+
+                    )
+                    it.suggestions = hints.map { hint -> jsMap { it.title = hint } }
+                }
+
+                it.systemIntent = arrayOf(
+                        jsMap {
+                            it.intent = "actions_intent_PERMISSION"
+                            it.inputValueData = jsMap {
+                                it["@type"] = "type.googleapis.com/google.actions.v2.PermissionValueSpec"
+                                it.optContext = "To deliver your order"
+                                it.permissions = arrayOf("NAME")
+                            }
+                        }
+                )
+            }
         }
+
 
         fun pollSuggestionHideKeyboard(text: String) = jsMap {
             it.telegram = jsMap {

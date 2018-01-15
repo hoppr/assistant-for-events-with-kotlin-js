@@ -16,12 +16,11 @@ fun main(args: Array<String>) {
 
     // Action on Google
     // val DialogflowApp = require("actions-on-google").DialogflowApp
-    // val googleAssistantRequest = "google" // Constant to identify Google Assistant requests
 
     exports.saveString = fireFunctions.https.onRequest { req, res ->
         console.log("Request headers: " + toJson(req.headers))
         console.log("Request body: " + toJson(req.body))
-
+        // val app = eval("""new DialogflowApp({req, res})""")
 
         // Simple 'authorization' with bearer
 
@@ -40,18 +39,20 @@ fun main(args: Array<String>) {
             return res.status(200).send(text)
         }
 
+
         fun sendJsonObj(obj: dynamic) = sendPlainText(toJson(obj))
         fun sendDialogResponse(obj: DialogResponse<dynamic>) = sendJsonObj(obj)
         fun sendDialogResponse(text: String, context: Array<DialogContext<dynamic>>? = null, data: dynamic = null) = sendJsonObj(DialogResponse(text, text, context, data))
 
         val requestSource = req.body.originalRequest?.source
-        if (requestSource != "telegram") return@onRequest sendDialogResponse("Servizio non supportato su $requestSource")
+        if (requestSource !in listOf("telegram", "google")) return@onRequest sendDialogResponse("Servizio non supportato su $requestSource")
 
 
         // Telegram params
 
         val tgData = req.body.originalRequest.data
-        val tgUserInfo = tgData.message?.from ?: tgData.callback_query?.from
+        val tgUserInfo = tgData.message?.from ?: tgData.callback_query?.from ?: tgData.user
+        val userId = tgUserInfo.id ?: tgUserInfo.userId
 
 
         // DialogFlow params
@@ -100,7 +101,7 @@ fun main(args: Array<String>) {
         // Polls
 
             "event.poll" -> {
-                dbResp.child(tgUserInfo.id).update(jsMap {
+                dbResp.child(userId).update(jsMap {
                     it.name = "${tgUserInfo.first_name} ${tgUserInfo.last_name} (${tgUserInfo.username})"
                 })
 
@@ -122,17 +123,17 @@ fun main(args: Array<String>) {
             }
             "event.poll.resp.open" -> {
                 val questionId = getIdFromContext("poll-question-open") ?: return@onRequest pollError("id")
-                dbResp.child(tgUserInfo.id).update(jsMap { it[questionId] = tgData.message.text })
+                dbResp.child(userId).update(jsMap { it[questionId] = dfResult.resolvedQuery })
                 sendQuestionOrComplete(questionId + 1)
             }
             "event.poll.resp.yes" -> {
                 val questionId = getIdFromContext("poll-question-yes_no") ?: return@onRequest pollError("id")
-                dbResp.child(tgUserInfo.id).update(jsMap { it[questionId] = true })
+                dbResp.child(userId).update(jsMap { it[questionId] = true })
                 sendQuestionOrComplete(questionId + 1)
             }
             "event.poll.resp.no" -> {
                 val questionId = getIdFromContext("poll-question-yes_no") ?: return@onRequest pollError("id")
-                dbResp.child(tgUserInfo.id).update(jsMap { it[questionId] = false })
+                dbResp.child(userId).update(jsMap { it[questionId] = false })
                 sendQuestionOrComplete(questionId + 1)
             }
 
