@@ -1,6 +1,9 @@
 external fun require(module: String): dynamic
 external val exports: dynamic
 
+class Task(val link: String, val name: String, val points: Int, val num_person: Int, val member: String, val date: String, val board: String)
+
+
 fun main(args: Array<String>) {
     val fireFunctions = require("firebase-functions")
     val config = fireFunctions.config()
@@ -188,7 +191,6 @@ fun main(args: Array<String>) {
 
         val users = jsMap { }
         val dbCards = dbTasks.child("cards")
-        class Task(val link: String, val name: String, val points: Int, val members: String?, val date: String, val board: String)
 
 
         // merge tasks from boards
@@ -197,29 +199,34 @@ fun main(args: Array<String>) {
         keys(req.body).forEach { board ->
             req.body[board].unsafeCast<Array<dynamic>>().forEach {
                 val points = it.labels.unsafeCast<Array<dynamic>>().map { it.name.unsafeCast<String>().take(2).trim().toIntOrNull() ?: 0 }.max() ?: 0
-                val members = it.members.unsafeCast<Array<dynamic>>().map {
-                    users[it.username] = it.fullName
-                    it.username
-                }.joinToString(", ").takeIf { it.isNotEmpty() }
                 val date = eval("new Date('${it.dateLastActivity}')")
-                listTasks.add(Task(it.shortUrl, it.name, points, members, it.dateLastActivity, board) to date)
+                val members = it.members.unsafeCast<Array<dynamic>>()
+                if (members.isEmpty()) listTasks.add(Task(it.shortUrl, it.name, points, 0, "unknown", it.dateLastActivity, board) to date)
+                members.forEach { m ->
+                    users[m.username] = m.fullName
+                    listTasks.add(Task(it.shortUrl, it.name, points, members.size, m.username, it.dateLastActivity, board) to date)
+                }
             }
         }
-
 
         // Sort task by year, week # of the year
 
         listTasks.groupBy { it.second.getFullYear().unsafeCast<Int>() }
                 .map {
-                    it.key to it.value.groupBy { getWeekNumber(it.second).unsafeCast<Int>() }
+                    it.key to it.value.groupBy { getWeekNumber(it.second).unsafeCast<Int>() }.map {
+                        it.key to jsMap { map ->
+                            it.value.groupBy { it.first.member }.map {
+                                map[it.key] = it.value.map { it.first }.toTypedArray()
+                            }
+                        }
+                    }
                 }
                 .forEach {
                     val year = it.first
                     val dbYear = dbCards.child(year)
                     it.second.forEach {
-                        val weekNum = it.key
-                        val tasks = it.value.map { it.first }.toTypedArray()
-                        dbYear.child(weekNum).update(tasks)
+                        dbYear.child(it.first).update(it.second)
+                        Unit
                     }
                 }
 
@@ -227,19 +234,58 @@ fun main(args: Array<String>) {
         sendPlainText("OK")
     }
 
+    exports.firebaseTaskAnalyticsJson = fireFunctions.https.onRequest { req, res ->
+        console.log("Request headers: " + toJson(req.headers))
+        console.log("Request body: " + toJson(req.body))
+
+        fireReadOnce(dbTasks.child("cards")) { cards ->
+            fun sendPlainText(text: String): dynamic {
+                console.log("Response body: $text")
+                return res.status(200).send(text)
+            }
+            sendPlainText(toJson(cards))
+        }
+    }
+
     exports.firebaseTaskAnalytics = fireFunctions.https.onRequest { req, res ->
         console.log("Request headers: " + toJson(req.headers))
         console.log("Request body: " + toJson(req.body))
 
-        fireReadOnce(dbTasks.child("cards/2017")) { weeks ->
+
+        fireReadOnce(dbTasks.child("cards")) { allCards ->
             fun sendPlainText(text: String): dynamic {
                 console.log("Response body: $text")
                 return res.status(200).send(text)
             }
 
-            sendPlainText("OK")
+            val years = keys(allCards).reversed().map {
+                val cardsByYear = allCards[it]
+                Year(it, emptyList(), keys(cardsByYear).reversed().map {
+                    val peopleByWeek = cardsByYear[it]
+                    Week("Settimana " + it, keys(peopleByWeek).map {
+                        Person(it, emptyList(), peopleByWeek[it].unsafeCast<Array<Task>>().map {
+                            PersonalTask(it.link, it.name, it.points / it.num_person.coerceAtLeast(1).toDouble(),  it.date, it.board)
+                        })
+                    })
+                })
+            }
+            val globalStats = GlobalStats(years, years.flatMap {
+                it.persons.groupBy { it.name }.toList().map {
+                    Person(
+                            name = it.first,
+                            badges = it.second.flatMap { it.badges },
+                            tasks = it.second.flatMap { it.tasks }
+                    )
+                }
+            })
+
+            sendPlainText(TaskAnalyticsHtml(globalStats).build())
         }
     }
 }
 
-
+class PersonalTask(val link: String, val name: String, val points: Double, val date: String, val board: String)
+class Person(val name: String, val badges: List<String>, val tasks: List<PersonalTask>)
+class Week(val title: String, val persons: List<Person>)
+class Year(val title: String, val persons: List<Person>, val weeks: List<Week>)
+class GlobalStats(val years: List<Year>, val persons: List<Person>)
