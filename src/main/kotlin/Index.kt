@@ -1,3 +1,5 @@
+import kotlin.math.ceil
+
 external fun require(module: String): dynamic
 external val exports: dynamic
 
@@ -258,26 +260,35 @@ fun main(args: Array<String>) {
                 return res.status(200).send(text)
             }
 
-            val years = keys(allCards).reversed().map {
+            val years = keys(allCards).map {
                 val cardsByYear = allCards[it]
-                Year(it, emptyList(), keys(cardsByYear).reversed().map {
+                val weeks = keys(cardsByYear).map {
                     val peopleByWeek = cardsByYear[it]
                     Week("Settimana " + it, keys(peopleByWeek).map {
                         Person(it, emptyList(), peopleByWeek[it].unsafeCast<Array<Task>>().map {
-                            PersonalTask(it.link, it.name, it.points / it.num_person.coerceAtLeast(1).toDouble(),  it.date, it.board)
+                            PersonalTask(it.link, it.name, it.points / it.num_person.coerceAtLeast(1).toDouble(), it.date, it.board)
                         })
                     })
-                })
-            }
-            val globalStats = GlobalStats(years, years.flatMap {
-                it.persons.groupBy { it.name }.toList().map {
-                    Person(
-                            name = it.first,
-                            badges = it.second.flatMap { it.badges },
-                            tasks = it.second.flatMap { it.tasks }
-                    )
                 }
-            })
+                Year(it,
+                        weeks.flatMap { it.persons }.groupBy { it.name }.toList().map {
+                            Person(
+                                    name = it.first,
+                                    badges = it.second.flatMap { it.badges },
+                                    tasks = it.second.flatMap { it.tasks }
+                            )
+                        }.sortedByDescending { it.taskPoints }
+                        , weeks)
+            }
+            val globalStats = GlobalStats(years,
+                    years.flatMap { it.persons }.groupBy { it.name }.toList().map {
+                        Person(
+                                name = it.first,
+                                badges = it.second.flatMap { it.badges },
+                                tasks = it.second.flatMap { it.tasks }
+                        )
+                    }.sortedByDescending { it.taskPoints }
+            )
 
             sendPlainText(TaskAnalyticsHtml(globalStats).build())
         }
@@ -285,7 +296,10 @@ fun main(args: Array<String>) {
 }
 
 class PersonalTask(val link: String, val name: String, val points: Double, val date: String, val board: String)
-class Person(val name: String, val badges: List<String>, val tasks: List<PersonalTask>)
+class Person(val name: String, val badges: List<String>, val tasks: List<PersonalTask>) {
+    val taskPoints = ceil(tasks.sumByDouble { it.points })
+}
+
 class Week(val title: String, val persons: List<Person>)
 class Year(val title: String, val persons: List<Person>, val weeks: List<Week>)
 class GlobalStats(val years: List<Year>, val persons: List<Person>)

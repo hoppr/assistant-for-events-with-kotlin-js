@@ -5,7 +5,7 @@ class TaskAnalyticsHtml(val global: GlobalStats) {
     private fun Person.toHtml() = """
 <p>
     ${name}<br />
-    ${tasks.size} task (${tasks.sumByDouble { it.points }} punti)<br />
+    ${tasks.size} task ($taskPoints punti)<br />
     ${badges.mapJoinString { "<tag>$it</tag>" }}
 </p>
 """
@@ -48,27 +48,36 @@ class TaskAnalyticsHtml(val global: GlobalStats) {
     </grid>
 </section>
 
-    ${global.years.mapJoinString {
+    ${global.years.reversed().mapJoinString {
         """
 <section id="y${it.title}">
     <h1>${it.title}</h1>
-        ${it.weeks.mapJoinString {
+    <grid>
+        ${it.persons.mapJoinString {
             """
-        <h4>${it.title} - ${it.persons.sumBy { it.tasks.size }} task completati da ${it.persons.size} persone</h4>
-        <grid>
+        <div col="1/3">
+            ${it.toHtml()}
+        </div>
+        """
+        }}
+    </grid>
+        ${it.weeks.reversed().mapJoinString {
+            """
+    <h4>${it.title} - ${it.persons.sumBy { it.tasks.size }} task completati da ${it.persons.size} persone</h4>
+    <grid>
             ${it.persons.mapJoinString {
                 """
-                <div col="1/6">${it.name}<br />${it.badges.mapJoinString { "<tag>$it</tag>" }}</div>
-                <div col="5/6">
+        <div col="1/6">${it.name}<br />${it.badges.mapJoinString { "<tag>$it</tag>" }}</div>
+        <div col="5/6">
                 ${it.tasks.mapJoinString {
                     """
-                    <p><tag>${it.points} p</tag> <small><a href="${it.link}" tt="${it.board} | ${it.date}">${it.name}</a></small></p>
+        <p><tag>${it.points} p</tag> <small><a href="${it.link}" tt="${it.board} | ${it.date}">${it.name}</a></small></p>
                     """
                 }}
                 </div>
                 """
             }}
-        </grid>
+    </grid>
             """
         }}
 </section>
