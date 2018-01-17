@@ -32,51 +32,59 @@ class TaskAnalyticsHtml(val global: GlobalStats) {
 
 <section id="people">
     <h1>Staff</h1>
+
+    <h3>Membri attivi</h3>
     <card>
         <grid>
-    ${global.persons.mapJoinString {
+    ${global.personsActive.mapJoinString {
         """
-            <div col="1/4">
+            <div col="1/3">
                 <p>
                     ${it.name}<br />
-                    <tag>${it.taskPoints} punti | ${it.tasks.size} task</tag><br />
-                    ${it.badges.mapJoinString { "<tag>$it</tag>" }}
+                    <tag>${it.taskPoints} punti | ${it.tasks.size} task</tag>${it.badges.mapJoinString { """<tag tt="${it.hint}">${it.name}</tag>""" }}
                 </p>
             </div>
         """
     }}
         </grid>
     </card>
+
+    <h3>Hanno contribuito (oltre 4 mesi fa)</h3>
+    <p>${global.personsInactive.map { """${it.name} (${it.taskPoints} punti | ${it.tasks.size} task)""" }.joinToString(" - ")}</p>
 </section>
 
     ${global.years.reversed().mapJoinString {
         """
 <section id="y${it.title}">
     <h1>${it.title}</h1>
-    <grid>
+
+    <card>
+        <grid>
         ${it.persons.mapJoinString {
             """
-        <div col="1/4">
-            <p>
-                ${it.name}<br />
-                <tag>${it.taskPoints} punti | ${it.tasks.size} task</tag><br />
-                ${it.badges.mapJoinString { "<tag>$it</tag>" }}
-            </p>
-        </div>
+            <div col="1/3">
+                <p>
+                    ${it.name}<br />
+                    <tag>${it.taskPoints} punti | ${it.tasks.size} task</tag><br />
+                    ${it.badges.mapJoinString { """<tag tt="${it.hint}">${it.name}</tag>""" }}
+                </p>
+            </div>
         """
         }}
-    </grid>
+        </grid>
+    </card>
+
         ${it.weeks.reversed().mapJoinString {
             """
-    <h4>${it.title} - ${it.persons.sumBy { it.tasks.size }} task completati da ${it.persons.size} persone</h4>
+    <h4>${it.title} <tag>${it.persons.size} persone | ${it.persons.sumByDouble { it.taskPoints }.oneDigit()} punti | ${it.persons.sumBy { it.tasks.size }} task</tag></h4>
     <grid>
             ${it.persons.mapJoinString {
                 """
-        <div col="1/6">${it.name}<br />${it.badges.mapJoinString { "<tag>$it</tag>" }}</div>
-        <div col="5/6">
+        <div col="1/3">${it.name}<br /><tag>${it.taskPoints.oneDigit()} punti | ${it.tasks.size} task</tag>${it.badges.mapJoinString { """<tag tt="${it.hint}">${it.name}</tag>""" }}</div>
+        <div col="2/3">
                 ${it.tasks.mapJoinString {
                     """
-        <p><tag>${it.points.oneDigit()} punti</tag> <small><a href="${it.link}" tt="${it.board} | ${Date(it.date).toLocaleString("it")}">${it.name}</a></small></p>
+        <p><small><a href="${it.link}" tt="${it.board} | ${Date(it.date).toLocaleString("it")}">${it.name}</a></small> <tag>${it.points.oneDigit()} punti</tag></p>
                     """
                 }}
                 </div>

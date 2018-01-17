@@ -1,3 +1,5 @@
+import kotlin.js.Date
+
 external fun require(module: String): dynamic
 external val exports: dynamic
 
@@ -254,21 +256,30 @@ fun main(args: Array<String>) {
         console.log("Request body: " + toJson(req.body))
 
         fireReadOnce(dbTasks.child("cards")) { allCards ->
-
+            val bFirstTask = HashSet<String>()
+            val bOverTheTop = HashSet<String>()
             val years = keys(allCards).map { year ->
                 val cardsByYear = allCards[year]
                 val weeks = keys(cardsByYear).map {
                     val peopleByWeek = cardsByYear[it]
                     val date = getDateOfWeek(it.toInt(), year.toInt()).toLocaleDateString("it", dateLocaleOptions { day = "numeric"; month = "long" })
                     Week("$date ($it settimana)", keys(peopleByWeek).map {
-                        Person(it, emptyList(), peopleByWeek[it].unsafeCast<Array<Task>>().map {
+                        val tasks = peopleByWeek[it].unsafeCast<Array<Task>>().map {
                             PersonalTask(it.link, it.name, it.points / it.num_person.coerceAtLeast(1).toDouble(), it.date, it.board)
-                        })
+                        }
+                        val badges = listOfNotNull(
+                                if (bFirstTask.add(it)) Badge("I'm in", "$date | Completato il primo task") else null,
+                                if (tasks.sumByDouble { it.points } > 8 && bOverTheTop.add(it)) Badge("Over the Top", "$date | Più di 8 punti in un una settimana (${tasks.sumByDouble { it.points }})") else null
+                        )
+                        Person(it, badges, tasks)
                     }.sortedByDescending { it.taskPoints })
                 }
-                Year(year, weeks.flatMap { it.persons }.joinSamePerson(), weeks)
+                Year(year, weeks.flatMap { it.persons }.joinSamePerson().filterNot { it.name == "unknown" }, weeks)
             }
-            val globalStats = GlobalStats(years, years.flatMap { it.persons }.joinSamePerson())
+            val persons = years.flatMap { it.persons }.joinSamePerson().partition {
+                (Date().getTime() - Date(it.tasks.last().date).getTime()) < (4 * 30 * 24 * 60 * 60 * 1000L)
+            }
+            val globalStats = GlobalStats(years, persons.first, persons.second)
 
             val text = TaskAnalyticsHtml(globalStats).build()
             console.log("Response body: $text")
@@ -277,14 +288,15 @@ fun main(args: Array<String>) {
     }
 }
 
+class Badge(val name: String, val hint: String)
 class PersonalTask(val link: String, val name: String, val points: Double, val date: String, val board: String)
-class Person(val name: String, val badges: List<String>, val tasks: List<PersonalTask>) {
+class Person(val name: String, val badges: List<Badge>, val tasks: List<PersonalTask>) {
     val taskPoints = tasks.sumByDouble { it.points }.oneDigit()
 }
 
 class Week(val title: String, val persons: List<Person>)
 class Year(val title: String, val persons: List<Person>, val weeks: List<Week>)
-class GlobalStats(val years: List<Year>, val persons: List<Person>)
+class GlobalStats(val years: List<Year>, val personsActive: List<Person>, val personsInactive: List<Person>)
 
 private fun List<Person>.joinSamePerson() = groupBy { it.name }.toList().map {
     Person(
