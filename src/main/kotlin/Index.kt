@@ -198,7 +198,9 @@ fun main(args: Array<String>) {
         val listTasks = ArrayList<Pair<Task, dynamic>>()
         keys(req.body).forEach { board ->
             req.body[board].unsafeCast<Array<dynamic>>().forEach {
-                val points = it.labels.unsafeCast<Array<dynamic>>().map { it.name.unsafeCast<String>().take(2).trim().toIntOrNull() ?: 0 }.max() ?: 0
+                val points = it.labels.unsafeCast<Array<dynamic>>().map {
+                    it.name.unsafeCast<String>().take(2).trim().toIntOrNull() ?: 0
+                }.max() ?: 0
                 val date = eval("new Date('${it.dateLastActivity}')")
                 val members = it.members.unsafeCast<Array<dynamic>>()
                 if (members.isEmpty()) listTasks.add(Task(it.shortUrl, it.name, points, 0, "unknown", it.dateLastActivity, board) to date)
@@ -257,34 +259,19 @@ fun main(args: Array<String>) {
                 val cardsByYear = allCards[year]
                 val weeks = keys(cardsByYear).map {
                     val peopleByWeek = cardsByYear[it]
-                    Week("$it settimana (${getDateOfWeek(it.toInt(), year.toInt()).toLocaleDateString("it", dateLocaleOptions { day = "numeric"; month = "long" })})", keys(peopleByWeek).map {
+                    val date = getDateOfWeek(it.toInt(), year.toInt()).toLocaleDateString("it", dateLocaleOptions { day = "numeric"; month = "long" })
+                    Week("$date ($it settimana)", keys(peopleByWeek).map {
                         Person(it, emptyList(), peopleByWeek[it].unsafeCast<Array<Task>>().map {
                             PersonalTask(it.link, it.name, it.points / it.num_person.coerceAtLeast(1).toDouble(), it.date, it.board)
                         })
                     }.sortedByDescending { it.taskPoints })
                 }
-                Year(year,
-                        weeks.flatMap { it.persons }.groupBy { it.name }.toList().map {
-                            Person(
-                                    name = it.first,
-                                    badges = it.second.flatMap { it.badges },
-                                    tasks = it.second.flatMap { it.tasks }
-                            )
-                        }.sortedByDescending { it.taskPoints }
-                        , weeks)
+                Year(year, weeks.flatMap { it.persons }.joinSamePerson(), weeks)
             }
-            val globalStats = GlobalStats(years,
-                    years.flatMap { it.persons }.groupBy { it.name }.toList().map {
-                        Person(
-                                name = it.first,
-                                badges = it.second.flatMap { it.badges },
-                                tasks = it.second.flatMap { it.tasks }
-                        )
-                    }.sortedByDescending { it.taskPoints }
-            )
+            val globalStats = GlobalStats(years, years.flatMap { it.persons }.joinSamePerson())
 
             val text = TaskAnalyticsHtml(globalStats).build()
-            console.log("Response body: ${text}")
+            console.log("Response body: $text")
             res.status(200).send(text)
         }
     }
@@ -298,3 +285,11 @@ class Person(val name: String, val badges: List<String>, val tasks: List<Persona
 class Week(val title: String, val persons: List<Person>)
 class Year(val title: String, val persons: List<Person>, val weeks: List<Week>)
 class GlobalStats(val years: List<Year>, val persons: List<Person>)
+
+private fun List<Person>.joinSamePerson() = groupBy { it.name }.toList().map {
+    Person(
+            name = it.first,
+            badges = it.second.flatMap { it.badges },
+            tasks = it.second.flatMap { it.tasks }
+    )
+}.sortedByDescending { it.taskPoints }
