@@ -1,14 +1,9 @@
+import kotlin.js.Date
+import kotlin.math.round
+
 class TaskAnalyticsHtml(val global: GlobalStats) {
 
     fun <T, R> Iterable<T>.mapJoinString(transform: (T) -> R) = map(transform).joinToString("\n")
-
-    private fun Person.toHtml() = """
-<p>
-    ${name}<br />
-    ${tasks.size} task ($taskPoints punti)<br />
-    ${badges.mapJoinString { "<tag>$it</tag>" }}
-</p>
-"""
 
     fun build() = """<!doctype HTML>
 <html lang="it">
@@ -37,15 +32,21 @@ class TaskAnalyticsHtml(val global: GlobalStats) {
 
 <section id="people">
     <h1>Staff</h1>
-    <grid>
+    <card>
+        <grid>
     ${global.persons.mapJoinString {
         """
-        <div col="1/3">
-            ${it.toHtml()}
-        </div>
+            <div col="1/4">
+                <p>
+                    ${it.name}<br />
+                    <tag>${it.taskPoints} punti | ${it.tasks.size} task</tag><br />
+                    ${it.badges.mapJoinString { "<tag>$it</tag>" }}
+                </p>
+            </div>
         """
     }}
-    </grid>
+        </grid>
+    </card>
 </section>
 
     ${global.years.reversed().mapJoinString {
@@ -55,8 +56,12 @@ class TaskAnalyticsHtml(val global: GlobalStats) {
     <grid>
         ${it.persons.mapJoinString {
             """
-        <div col="1/3">
-            ${it.toHtml()}
+        <div col="1/4">
+            <p>
+                ${it.name}<br />
+                <tag>${it.taskPoints} punti | ${it.tasks.size} task</tag><br />
+                ${it.badges.mapJoinString { "<tag>$it</tag>" }}
+            </p>
         </div>
         """
         }}
@@ -71,7 +76,7 @@ class TaskAnalyticsHtml(val global: GlobalStats) {
         <div col="5/6">
                 ${it.tasks.mapJoinString {
                     """
-        <p><tag>${it.points} p</tag> <small><a href="${it.link}" tt="${it.board} | ${it.date}">${it.name}</a></small></p>
+        <p><tag>${it.points.oneDigit()} punti</tag> <small><a href="${it.link}" tt="${it.board} | ${Date(it.date).toLocaleString("it")}">${it.name}</a></small></p>
                     """
                 }}
                 </div>

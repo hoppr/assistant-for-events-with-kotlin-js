@@ -1,5 +1,3 @@
-import kotlin.math.ceil
-
 external fun require(module: String): dynamic
 external val exports: dynamic
 
@@ -253,24 +251,19 @@ fun main(args: Array<String>) {
         console.log("Request headers: " + toJson(req.headers))
         console.log("Request body: " + toJson(req.body))
 
-
         fireReadOnce(dbTasks.child("cards")) { allCards ->
-            fun sendPlainText(text: String): dynamic {
-                console.log("Response body: $text")
-                return res.status(200).send(text)
-            }
 
-            val years = keys(allCards).map {
-                val cardsByYear = allCards[it]
+            val years = keys(allCards).map { year ->
+                val cardsByYear = allCards[year]
                 val weeks = keys(cardsByYear).map {
                     val peopleByWeek = cardsByYear[it]
-                    Week("Settimana " + it, keys(peopleByWeek).map {
+                    Week("$it settimana (${getDateOfWeek(it.toInt(), year.toInt()).toLocaleDateString("it", dateLocaleOptions { day = "numeric"; month = "long" })})", keys(peopleByWeek).map {
                         Person(it, emptyList(), peopleByWeek[it].unsafeCast<Array<Task>>().map {
                             PersonalTask(it.link, it.name, it.points / it.num_person.coerceAtLeast(1).toDouble(), it.date, it.board)
                         })
-                    })
+                    }.sortedByDescending { it.taskPoints })
                 }
-                Year(it,
+                Year(year,
                         weeks.flatMap { it.persons }.groupBy { it.name }.toList().map {
                             Person(
                                     name = it.first,
@@ -290,14 +283,16 @@ fun main(args: Array<String>) {
                     }.sortedByDescending { it.taskPoints }
             )
 
-            sendPlainText(TaskAnalyticsHtml(globalStats).build())
+            val text = TaskAnalyticsHtml(globalStats).build()
+            console.log("Response body: ${text}")
+            res.status(200).send(text)
         }
     }
 }
 
 class PersonalTask(val link: String, val name: String, val points: Double, val date: String, val board: String)
 class Person(val name: String, val badges: List<String>, val tasks: List<PersonalTask>) {
-    val taskPoints = ceil(tasks.sumByDouble { it.points })
+    val taskPoints = tasks.sumByDouble { it.points }.oneDigit()
 }
 
 class Week(val title: String, val persons: List<Person>)
