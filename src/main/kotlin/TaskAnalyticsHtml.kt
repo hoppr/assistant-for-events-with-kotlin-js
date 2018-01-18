@@ -1,5 +1,4 @@
 import kotlin.js.Date
-import kotlin.math.round
 
 class TaskAnalyticsHtml(val global: GlobalStats) {
 
@@ -40,8 +39,8 @@ class TaskAnalyticsHtml(val global: GlobalStats) {
         """
             <div col="1/3">
                 <p>
-                    ${it.name}<br />
-                    <tag>${it.taskPoints} punti | ${it.tasks.size} task</tag>${it.badges.mapJoinString { """<tag tt="${it.hint}">${it.name}</tag>""" }}
+                    <b>${it.name}</b><br />
+                    <tag>${it.taskPoints} punti | ${it.tasks.size} task</tag>${it.badges.reversed().mapJoinString { """<tag tt="${it.hint}">${it.name}</tag>""" }}
                 </p>
             </div>
         """
@@ -49,8 +48,8 @@ class TaskAnalyticsHtml(val global: GlobalStats) {
         </grid>
     </card>
 
-    <h3>Hanno contribuito (oltre 4 mesi fa)</h3>
-    <p>${global.personsInactive.map { """${it.name} (${it.taskPoints} punti | ${it.tasks.size} task)""" }.joinToString(" - ")}</p>
+    <h3>Hanno contribuito (oltre 3 mesi fa)</h3>
+    <p>${global.personsInactive.map { """<b>${it.name}</b> (${it.taskPoints} punti | ${it.tasks.size} task)""" }.joinToString(" - ")}</p>
 </section>
 
     ${global.years.reversed().mapJoinString {
@@ -64,9 +63,8 @@ class TaskAnalyticsHtml(val global: GlobalStats) {
             """
             <div col="1/3">
                 <p>
-                    ${it.name}<br />
-                    <tag>${it.taskPoints} punti | ${it.tasks.size} task</tag><br />
-                    ${it.badges.mapJoinString { """<tag tt="${it.hint}">${it.name}</tag>""" }}
+                    <b>${it.name}</b><br />
+                    <tag>${it.taskPoints} punti | ${it.tasks.size} task</tag>${it.badges.reversed().mapJoinString { """<tag tt="${it.hint}">${it.name}</tag>""" }}
                 </p>
             </div>
         """
@@ -76,20 +74,26 @@ class TaskAnalyticsHtml(val global: GlobalStats) {
 
         ${it.weeks.reversed().mapJoinString {
             """
-    <h4>${it.title} <tag>${it.persons.size} persone | ${it.persons.sumByDouble { it.taskPoints }.oneDigit()} punti | ${it.persons.sumBy { it.tasks.size }} task</tag></h4>
     <grid>
+        <div col="1/1">
+            <p fs="xl">
+                ${it.title} <tag>${it.subtitle}</tag><tag>${it.persons.size} persone | ${it.persons.sumByDouble { it.taskPoints }.oneDigit()} punti | ${it.persons.sumBy { it.tasks.size }} task</tag>
+            </p>
+            <grid>
             ${it.persons.mapJoinString {
                 """
-        <div col="1/3">${it.name}<br /><tag>${it.taskPoints.oneDigit()} punti | ${it.tasks.size} task</tag>${it.badges.mapJoinString { """<tag tt="${it.hint}">${it.name}</tag>""" }}</div>
-        <div col="2/3">
+                <div fx col="1/3">${it.name}<br /><tag>${it.taskPoints.oneDigit()} punti | ${it.tasks.size} task</tag>${it.badges.mapJoinString { """<tag tt="${it.hint}">${it.name}</tag>""" }}</div>
+                <div fx col="2/3">
                 ${it.tasks.mapJoinString {
                     """
-        <p><small><a href="${it.link}" tt="${it.board} | ${Date(it.date).toLocaleString("it")}">${it.name}</a></small> <tag>${it.points.oneDigit()} punti</tag></p>
+                    <p><small><a href="${it.link}" tt="${it.board} | ${Date(it.date).toLocaleString("it")}">${it.name}</a></small> <tag>${it.points.oneDigit()} punti</tag></p>
                     """
                 }}
                 </div>
                 """
             }}
+            </grid>
+        </div>
     </grid>
             """
         }}

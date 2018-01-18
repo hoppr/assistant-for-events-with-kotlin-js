@@ -263,16 +263,16 @@ fun main(args: Array<String>) {
                 val weeks = keys(cardsByYear).map {
                     val peopleByWeek = cardsByYear[it]
                     val date = getDateOfWeek(it.toInt(), year.toInt()).toLocaleDateString("it", dateLocaleOptions { day = "numeric"; month = "long" })
-                    Week("$date ($it settimana)", keys(peopleByWeek).map {
+                    Week("$date" ,"$it settimana", keys(peopleByWeek).map {
                         val tasks = peopleByWeek[it].unsafeCast<Array<Task>>().map {
                             PersonalTask(it.link, it.name, it.points / it.num_person.coerceAtLeast(1).toDouble(), it.date, it.board)
                         }
                         val badges = listOfNotNull(
                                 firstTaskOfTheYear.check(it) {
-                                    Badge("I'm in! $year", "$date |  Completato il primo task")
+                                    Badge("It's $year", "$date | Completato un task nel $year")
                                 },
                                 overTheTop.check(it, { tasks.sumByDouble { it.points } > 8 }) {
-                                    Badge("Over the Top #$it", "$date | Più di 8 punti in un una settimana (${tasks.sumByDouble { it.points }})")
+                                    Badge("Limit override! #$it", "$date | Più di 8 punti in un una settimana (${tasks.sumByDouble { it.points }})")
                                 }
                         )
                         Person(it, badges, tasks)
@@ -281,7 +281,7 @@ fun main(args: Array<String>) {
                 Year(year, weeks.flatMap { it.persons }.joinSamePerson().filterNot { it.name == "unknown" }, weeks)
             }
             val persons = years.flatMap { it.persons }.joinSamePerson().partition {
-                (Date().getTime() - Date(it.tasks.last().date).getTime()) < (4 * 30 * 24 * 60 * 60 * 1000L)
+                (Date().getTime() - Date(it.tasks.last().date).getTime()) < (3 * 30 * 24 * 60 * 60 * 1000L)
             }
             val globalStats = GlobalStats(years, persons.first, persons.second)
 
@@ -319,7 +319,7 @@ class Person(val name: String, val badges: List<Badge>, val tasks: List<Personal
     val taskPoints = tasks.sumByDouble { it.points }.oneDigit()
 }
 
-class Week(val title: String, val persons: List<Person>)
+class Week(val title: String, val subtitle: String, val persons: List<Person>)
 class Year(val title: String, val persons: List<Person>, val weeks: List<Week>)
 class GlobalStats(val years: List<Year>, val personsActive: List<Person>, val personsInactive: List<Person>)
 
