@@ -256,9 +256,9 @@ fun main(args: Array<String>) {
         console.log("Request body: " + toJson(req.body))
 
         fireReadOnce(dbTasks.child("cards")) { allCards ->
-            val bFirstTask = HashSet<String>()
-            val bOverTheTop = HashSet<String>()
+            val overTheTop = MultipleBadge()
             val years = keys(allCards).map { year ->
+                val firstTaskOfTheYear = SingleBadge()
                 val cardsByYear = allCards[year]
                 val weeks = keys(cardsByYear).map {
                     val peopleByWeek = cardsByYear[it]
@@ -268,8 +268,12 @@ fun main(args: Array<String>) {
                             PersonalTask(it.link, it.name, it.points / it.num_person.coerceAtLeast(1).toDouble(), it.date, it.board)
                         }
                         val badges = listOfNotNull(
-                                if (bFirstTask.add(it)) Badge("I'm in", "$date | Completato il primo task") else null,
-                                if (tasks.sumByDouble { it.points } > 8 && bOverTheTop.add(it)) Badge("Over the Top", "$date | Più di 8 punti in un una settimana (${tasks.sumByDouble { it.points }})") else null
+                                firstTaskOfTheYear.check(it) {
+                                    Badge("I'm in! $year", "$date |  Completato il primo task")
+                                },
+                                overTheTop.check(it, { tasks.sumByDouble { it.points } > 8 }) {
+                                    Badge("Over the Top #$it", "$date | Più di 8 punti in un una settimana (${tasks.sumByDouble { it.points }})")
+                                }
                         )
                         Person(it, badges, tasks)
                     }.sortedByDescending { it.taskPoints })
@@ -285,6 +289,27 @@ fun main(args: Array<String>) {
             console.log("Response body: $text")
             res.status(200).send(text)
         }
+    }
+}
+
+class SingleBadge {
+    private val data = HashSet<String>()
+    fun check(name: String, condition: () -> Boolean = { true }, badge: () -> Badge): Badge? {
+        return if (name !in data && condition()) {
+            data.add(name)
+            badge()
+        } else null
+    }
+}
+
+class MultipleBadge {
+    private val data = HashMap<String, Int>()
+    fun check(name: String, condition: () -> Boolean = { true }, badge: (count: Int) -> Badge): Badge? {
+        return if (condition()) {
+            val count = data.getOrPut(name) { 0 } + 1
+            data[name] = count
+            badge(count)
+        } else null
     }
 }
 
