@@ -2,7 +2,7 @@ group 'cloudfunctions'
 version '1.0-SNAPSHOT'
 
 buildscript {
-    ext.kotlin_version = '1.2.20'
+    ext.kotlin_version = '1.2.30'
 
     repositories {
         mavenCentral()
@@ -15,7 +15,7 @@ buildscript {
 apply plugin: 'kotlin2js'
 
 repositories {
-    mavenCentral()
+    jcenter()
 }
 
 dependencies {
